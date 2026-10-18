@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VVV CAR - ระบบจัดการหลังบ้าน (Admin Dashboard)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; background-color: #f1f5f9; }
+        .gradient-admin { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <header class="gradient-admin text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center font-black text-xl text-white">V</div>
+                <div>
+                    <h1 class="text-lg font-bold leading-none">VVV CAR Admin</h1>
+                    <p class="text-xs text-slate-300 mt-1">ระบบจัดการคิวงาน มัดจำ & อนุมัติซ่อม</p>
+                </div>
+            </div>
+            <button onclick="fetchAllJobs()" class="bg-sky-600 text-xs px-3 py-1.5 rounded-lg font-semibold hover:bg-sky-500 transition-all flex items-center gap-1">
+                <i class="fa-solid fa-rotate"></i> รีเฟรช
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4 space-y-4">
+        <div id="jobList" class="space-y-3">
+            <div class="bg-white p-8 rounded-xl text-center text-slate-400 text-xs border">
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-600 mb-2"></i><br>กำลังดึงข้อมูลคิวงานทั้งหมด...
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const PROJECT_ID = "vvvcar";
+        const REST_API_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/jobs`;
+        let allJobsData = [];
+
+        window.onload = function() {
+            fetchAllJobs();
+        };
+
+        function fetchAllJobs() {
+            const container = document.getElementById('jobList');
+            container.innerHTML = `
+                <div class="bg-white p-8 rounded-xl text-center text-slate-400 text-xs border">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-600 mb-2"></i><br>กำลังดึงข้อมูลคิวงาน...
+                </div>
+            `;
+
+            fetch(REST_API_URL, { cache: 'no-cache' })
+                .then(res => {
+                    if (!res.ok) throw new Error("HTTP error! status: " + res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    allJobsData = [];
+                    if (data.documents && Array.isArray(data.documents)) {
+                        allJobsData = data.documents.map(doc => {
+                            const fields = doc.fields || {};
+                            return {
+                                id: doc.name.split('/').pop(),
+                                jobType: fields.jobType?.stringValue || 'ฟื้นฟู',
+                                custName: fields.custName?.stringValue || '-',
+                                custPhone: fields.custPhone?.stringValue || '-',
+                                carPlate: fields.carPlate?.stringValue || '-',
+                                carModel: fields.carModel?.stringValue || '-',
+                                bookingDate: fields.bookingDate?.stringValue || '-',
+                                status: fields.status?.stringValue || 'จองคิวใหม่',
+                                approvalStatus: fields.approvalStatus?.stringValue || 'รออนุมัติ',
+                                paymentStatus: fields.paymentStatus?.stringValue || 'รอมัดจำ'
+                            };
+                        });
+                    }
+                    renderJobs();
+                })
+                .catch(err => {
+                    container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-center">เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}</div>`;
+                });
+        }
+
+        function renderJobs() {
+            const container = document.getElementById('jobList');
+            if (allJobsData.length === 0) {
+                container.innerHTML = `<div class="bg-white p-8 rounded-xl text-center text-slate-400 text-xs border">ยังไม่มีรายการคิวงานในระบบ</div>`;
+                return;
+            }
+
+            container.innerHTML = "";
+            allJobsData.forEach(job => {
+                const isApproved = job.approvalStatus === "อนุมัติแล้ว";
+                const isRepair = job.jobType === "ซ่อมเครื่องยนต์";
+
+                const cardHtml = `
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                        <div class="flex justify-between items-start border-b pb-2">
+                            <div>
+                                <span class="text-[10px] ${isRepair ? 'bg-blue-100 text-blue-700' : 'bg-cyan-100 text-cyan-700'} font-bold px-2 py-0.5 rounded">
+                                    ${job.jobType}
+                                </span>
+                                <h3 class="font-bold text-slate-800 text-base mt-1">HONDA ${job.carModel} <span class="text-sky-700">(${job.carPlate})</span></h3>
+                                <p class="text-xs text-slate-500"><i class="fa-solid fa-user mr-1"></i>คุณ${job.custName} | <i class="fa-solid fa-phone mr-1"></i><a href="tel:${job.custPhone}" class="underline text-blue-600">${job.custPhone}</a></p>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-bold ${isApproved ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'} border px-2 py-0.5 rounded-full inline-block">
+                                    ${job.approvalStatus}
+                                </span>
+                                <p class="text-[10px] text-slate-400 mt-1">นัด: ${job.bookingDate}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            <div>
+                                <p class="text-[10px] text-slate-400 mb-1">1. อนุมัติงาน</p>
+                                <button onclick="updateJobField('${job.id}', 'approvalStatus', '${isApproved ? 'รออนุมัติ' : 'อนุมัติแล้ว'}')" 
+                                    class="w-full text-xs py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 ${isApproved ? 'bg-slate-200 text-slate-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}">
+                                    <i class="fa-solid ${isApproved ? 'fa-circle-check' : 'fa-check'}"></i> ${isApproved ? 'อนุมัติแล้ว' : 'กดอนุมัติ'}
+                                </button>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-400 mb-1">2. มัดจำ</p>
+                                <button onclick="updateJobField('${job.id}', 'paymentStatus', '${job.paymentStatus === 'รับมัดจำแล้ว' ? 'รอมัดจำ' : 'รับมัดจำแล้ว'}')" 
+                                    class="w-full text-xs py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 ${job.paymentStatus === 'รับมัดจำแล้ว' ? 'bg-blue-600 text-white' : 'bg-amber-500 text-white'}">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i> ${job.paymentStatus === 'รับมัดจำแล้ว' ? 'รับมัดจำแล้ว' : 'รับมัดจำ'}
+                                </button>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-slate-400 mb-1">3. ชำระเต็ม</p>
+                                <button onclick="updateJobField('${job.id}', 'paymentStatus', 'ชำระเต็มจำนวน')" 
+                                    class="w-full text-xs py-1.5 px-2 rounded-lg font-bold flex items-center justify-center gap-1 ${job.paymentStatus === 'ชำระเต็มจำนวน' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'}">
+                                    <i class="fa-solid fa-receipt"></i> ${job.paymentStatus === 'ชำระเต็มจำนวน' ? 'จ่ายครบแล้ว' : 'ชำระเต็ม 7.9k'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1">
+                            <label class="text-xs font-semibold text-slate-600 whitespace-nowrap">สถานะขั้นตอน:</label>
+                            <select onchange="updateJobField('${job.id}', 'status', this.value)" class="flex-1 text-xs p-2 border rounded-lg bg-white outline-none">
+                                <option value="จองคิวใหม่" ${job.status === 'จองคิวใหม่' ? 'selected' : ''}>1. จองคิวใหม่ / รับรถเข้าอู่</option>
+                                <option value="กำลังดำเนินการ" ${job.status === 'กำลังดำเนินการ' ? 'selected' : ''}>2. กำลังดำเนินการซ่อม/สปา</option>
+                                <option value="กำลังประกอบ & ทดสอบ" ${job.status === 'กำลังประกอบ & ทดสอบ' ? 'selected' : ''}>3. ประกอบ & ทดสอบระบบ</option>
+                                <option value="พร้อมส่งมอบรถ" ${job.status === 'พร้อมส่งมอบรถ' ? 'selected' : ''}>4. พร้อมส่งมอบรถ</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function updateJobField(docId, fieldName, fieldValue) {
+            const docUrl = `${REST_API_URL}/${docId}?updat
