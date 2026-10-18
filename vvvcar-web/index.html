@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VVV CAR - จองคิวซ่อมเครื่องยนต์ HONDA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; background-color: #f8fafc; }
+        .gradient-bg { background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%); }
+    </style>
+</head>
+<body class="pb-12 max-w-md mx-auto min-h-screen bg-slate-50 shadow-xl border-x border-slate-200">
+    <header class="gradient-bg text-white p-5 rounded-b-2xl shadow-lg relative">
+        <span class="bg-blue-400/30 text-blue-100 text-xs px-2.5 py-1 rounded-full font-medium">VVV CAR หาดใหญ่</span>
+        <h1 class="text-2xl font-bold mt-1"><i class="fa-solid fa-wrench mr-2"></i>จองคิวซ่อมเครื่องยนต์</h1>
+        <p class="text-slate-200 text-xs mt-0.5">บริการฟื้นฟูเครื่องยนต์ HONDA จมน้ำ (7,900 บาท)</p>
+    </header>
+
+    <main class="p-4">
+        <form id="repairForm" onsubmit="submitRepair(event)" class="bg-white p-5 rounded-xl shadow-sm border space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อ-นามสกุล ผู้แจ้ง *</label>
+                <input type="text" id="custName" required placeholder="เช่น สมชาย ใจดี" class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">เบอร์โทรศัพท์ติดต่อ *</label>
+                <input type="tel" id="custPhone" required placeholder="เช่น 0812345678" class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">เลขทะเบียนรถ * (ระบุสั้นๆ เช่น กข 1234)</label>
+                <input type="text" id="carPlate" required placeholder="เช่น กข 1234" class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">รุ่นรถ HONDA *</label>
+                <select id="carModelSelect" onchange="toggleOtherModel()" required class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    <option value="">-- เลือกรุ่นรถ --</option>
+                    <option value="Civic">HONDA Civic</option>
+                    <option value="City">HONDA City</option>
+                    <option value="Jazz">HONDA Jazz</option>
+                    <option value="HR-V">HONDA HR-V</option>
+                    <option value="CR-V">HONDA CR-V</option>
+                    <option value="Accord">HONDA Accord</option>
+                    <option value="OTHER">อื่นๆ (ระบุรุ่น)</option>
+                </select>
+                <input type="text" id="otherModelInput" placeholder="ระบุรุ่นรถ HONDA ของคุณ" class="hidden mt-2 w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-amber-50">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">วันที่สะดวกนำรถเข้าอู่ *</label>
+                <input type="date" id="bookingDate" required class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">อาการชำรุด / หมายเหตุ</label>
+                <textarea id="note" rows="2" placeholder="เช่น น้ำท่วมมิดเครื่อง, สตาร์ทไม่ติด" class="w-full text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+            </div>
+
+            <button type="submit" id="btnSubmit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-all shadow-md text-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-paper-plane"></i> ยืนยันการจองคิวซ่อม (7,900.-)
+            </button>
+        </form>
+    </main>
+
+    <script>
+        const PROJECT_ID = "vvvcar";
+        const REST_API_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/jobs`;
+
+        function toggleOtherModel() {
+            const select = document.getElementById('carModelSelect');
+            const otherInput = document.getElementById('otherModelInput');
+            if (select.value === 'OTHER') {
+                otherInput.classList.remove('hidden');
+                otherInput.required = true;
+            } else {
+                otherInput.classList.add('hidden');
+                otherInput.required = false;
+            }
+        }
+
+        async function submitRepair(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...';
+
+            const selectVal = document.getElementById('carModelSelect').value;
+            const modelName = selectVal === 'OTHER' ? document.getElementById('otherModelInput').value.trim() : selectVal;
+
+            const payload = {
+                fields: {
+                    jobType: { stringValue: "ซ่อมเครื่องยนต์" },
+                    custName: { stringValue: document.getElementById('custName').value.trim() },
+                    custPhone: { stringValue: document.getElementById('custPhone').value.trim() },
+                    carPlate: { stringValue: document.getElementById('carPlate').value.trim().toUpperCase() },
+                    carModel: { stringValue: modelName },
+                    bookingDate: { stringValue: document.getElementById('bookingDate').value },
+                    note: { stringValue: document.getElementById('note').value.trim() },
+                    status: { stringValue: "จองคิวใหม่" },
+                    approvalStatus: { stringValue: "รออนุมัติซ่อม" },
+                    paymentStatus: { stringValue: "รอมัดจำ" },
+                    createdAt: { stringValue: new Date().toISOString() }
+                }
+            };
+
+            try {
+                const res = await fetch(REST_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert("บันทึกข้อมูลการจองเรียบร้อยแล้วครับ!");
+                    window.location.href = "status-check.html";
+                } else {
+                    const err = await res.json();
+                    alert("เกิดข้อผิดพลาด: " + (err.error?.message || "บันทึกไม่สำเร็จ"));
+                }
+            } catch (err) {
+                alert("เกิดข้อผิดพลาดในการเชื่อมต่อ: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> ยืนยันการจองคิวซ่อม (7,900.-)';
+            }
+        }
+    </script>
+</body>
+</html>
