@@ -11,6 +11,10 @@
         body { font-family: 'Kanit', sans-serif; background-color: #f8fafc; }
         .gradient-status { background: linear-gradient(135deg, #14532d 0%, #15803d 50%, #22c55e 100%); }
     </style>
+
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="pb-16 max-w-md mx-auto min-h-screen bg-slate-50 shadow-xl border-x border-slate-200">
     <header class="gradient-status text-white p-5 rounded-b-2xl shadow-lg relative">
@@ -39,64 +43,61 @@
 
         <div id="searchResults" class="space-y-4">
             <div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-400 text-xs">
-                <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังดึงข้อมูลคิวรถ...
+                <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังดึงข้อมูลคิวรถจากระบบ...
             </div>
         </div>
     </main>
 
     <script>
-        const PROJECT_ID = "vvvcar";
-        const REST_API_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/jobs`;
+        // Config เชื่อมต่อ Firebase Project VVV CAR
+        const firebaseConfig = {
+            projectId: "vvvcar"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
         let cachedJobs = [];
 
-        window.addEventListener('DOMContentLoaded', fetchAllJobs);
+        document.addEventListener("DOMContentLoaded", fetchAllJobs);
 
         function fetchAllJobs() {
             const resultsDiv = document.getElementById('searchResults');
             resultsDiv.innerHTML = `
                 <div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-400 text-xs">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังเชื่อมต่อข้อมูล VVV CAR...
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังเชื่อมต่อฐานข้อมูล...
                 </div>
             `;
 
-            fetch(REST_API_URL)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
+            db.collection("jobs").get()
+                .then((querySnapshot) => {
                     cachedJobs = [];
-                    if (data && data.documents && Array.isArray(data.documents)) {
-                        cachedJobs = data.documents.map(doc => {
-                            const fields = doc.fields || {};
-                            const parseField = (f) => f ? (f.stringValue || f.integerValue || f.doubleValue || '') : '';
-
-                            return {
-                                id: doc.name ? doc.name.split('/').pop() : '',
-                                jobType: parseField(fields.jobType) || 'ฟื้นฟู',
-                                custName: parseField(fields.custName) || '-',
-                                custPhone: parseField(fields.custPhone) || '-',
-                                carPlate: parseField(fields.carPlate) || '-',
-                                carModel: parseField(fields.carModel) || '-',
-                                bookingDate: parseField(fields.bookingDate) || '-',
-                                status: parseField(fields.status) || 'จองคิวใหม่',
-                                approvalStatus: parseField(fields.approvalStatus) || 'รออนุมัติ',
-                                paymentStatus: parseField(fields.paymentStatus) || 'รอมัดจำ'
-                            };
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        cachedJobs.push({
+                            id: doc.id,
+                            jobType: data.jobType || 'ฟื้นฟู',
+                            custName: data.custName || '-',
+                            custPhone: data.custPhone || '-',
+                            carPlate: data.carPlate || '-',
+                            carModel: data.carModel || '-',
+                            bookingDate: data.bookingDate || '-',
+                            status: data.status || 'จองคิวใหม่',
+                            approvalStatus: data.approvalStatus || 'รออนุมัติ',
+                            paymentStatus: data.paymentStatus || 'รอมัดจำ'
                         });
-                    }
+                    });
                     filterJobs();
                 })
-                .catch(error => {
-                    console.error('Fetch error:', error);
+                .catch((error) => {
+                    console.error("Firestore Error: ", error);
                     resultsDiv.innerHTML = `
-                        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs text-center space-y-2">
-                            <i class="fa-solid fa-triangle-exclamation text-xl text-red-500"></i>
-                            <p class="font-bold">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
-                            <p class="text-[11px] bg-white p-2 rounded border border-red-100 text-slate-600">${error.message}</p>
-                            <button onclick="fetchAllJobs()" class="mt-2 bg-red-600 text-white font-bold px-3 py-1 rounded text-xs">ลองอีกครั้ง</button>
+                        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs text-center space-y-1">
+                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                            <p class="font-bold">เชื่อมต่อฐานข้อมูลไม่ได้</p>
+                            <p class="text-[11px]">${error.message}</p>
                         </div>
                     `;
                 });
@@ -120,8 +121,7 @@
                 resultsDiv.innerHTML = `
                     <div class="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl text-xs text-center space-y-2">
                         <i class="fa-solid fa-car-side text-amber-500 text-2xl"></i>
-                        <p class="font-bold text-sm">${keyword ? 'ไม่พบข้อมูลทะเบียน "' + rawVal + '"' : 'ยังไม่มีคิวรถในระบบ'}</p>
-                        <p class="text-[11px] text-slate-600">หากเพิ่งจองเข้ามา ลองกดปุ่ม "รีเฟรช" ด้านบนอีกครั้งครับ</p>
+                        <p class="font-bold text-sm">${keyword ? 'ไม่พบข้อมูลที่ค้นหา "' + rawVal + '"' : 'ยังไม่มีคิวรถในระบบ'}</p>
                     </div>
                 `;
                 return;
@@ -160,4 +160,9 @@
                                 <p class="font-bold ${data.status !== 'จองคิวใหม่' ? 'text-emerald-800' : 'text-slate-400'}">${isRepair ? '2. ถอดเครื่อง & ไล่น้ำ' : '2. ถอดเบาะ พรม ทำความสะอาด'}</p>
                             </div>
                             <div class="relative">
-                                <span class="absolute -left-[21px] top-0.5 w-3 h-3 ${data.status === 'กำลังประกอบ & ทดสอบ' || data.status === 'พร้อมส่งมอบรถ' ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'} rounded-full"
+                                <span class="absolute -left-[21px] top-0.5 w-3 h-3 ${data.status === 'กำลังประกอบ & ทดสอบ' || data.status === 'พร้อมส่งมอบรถ' ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'} rounded-full"></span>
+                                <p class="font-bold ${data.status === 'กำลังประกอบ & ทดสอบ' || data.status === 'พร้อมส่งมอบรถ' ? 'text-emerald-800' : 'text-slate-400'}">${isRepair ? '3. เปลี่ยนถ่ายของเหลว & ทดลองสตาร์ท' : '3. อบแห้ง & พ่นโอโซน'}</p>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute -left-[21px] top-0.5 w-3 h-3 ${data.status === 'พร้อมส่งมอบรถ' ? 'bg-emerald-600 ring-4 ring-emerald-100' : 'bg-slate-300'} rounded-full"></span>
+                                <p class="font-bold ${data.status === 'พร้อมส่งมอบรถ' ? 'text-emerald-800' : 'text-slate-400'}">4
