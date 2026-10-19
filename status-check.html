@@ -27,21 +27,20 @@
     </header>
 
     <main class="p-4 space-y-4">
-        <!-- ช่องค้นหา -->
         <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-bold text-slate-800 text-sm mb-2"><i class="fa-solid fa-car text-emerald-600 mr-2"></i>ระบุเลขทะเบียนรถ หรือ ชื่อ</h3>
             <div class="flex gap-2">
-                <input type="text" id="searchPlate" placeholder="เช่น กข1234" oninput="renderUI()" class="flex-1 text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none uppercase">
-                <button onclick="fetchData()" class="bg-emerald-600 text-white font-semibold px-4 rounded-lg text-sm hover:bg-emerald-700 transition-all flex items-center gap-1">
-                    <i class="fa-solid fa-rotate"></i> รีเฟรช
+                <input type="text" id="searchPlate" placeholder="เช่น กข1234" oninput="searchJob()" class="flex-1 text-sm p-2.5 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none uppercase">
+                <button onclick="loadData()" class="bg-emerald-600 text-white font-semibold px-4 rounded-lg text-sm hover:bg-emerald-700 transition-all flex items-center gap-1">
+                    <i class="fa-solid fa-rotate"></i> โหลดข้อมูล
                 </button>
             </div>
         </div>
 
-        <!-- พื้นที่แสดงผลข้อมูล -->
         <div id="resultContainer" class="space-y-4">
-            <div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-400 text-xs">
-                <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังเตรียมระบบค้นหา...
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 p-6 rounded-xl text-xs text-center space-y-2">
+                <i class="fa-solid fa-magnifying-glass text-blue-500 text-2xl"></i>
+                <p class="font-bold text-sm">กรุณากดปุ่ม "โหลดข้อมูล" ด้านบน เพื่อเริ่มค้นหา</p>
             </div>
         </div>
     </main>
@@ -49,29 +48,26 @@
     <script>
         let allJobs = [];
 
-        window.onload = function() {
-            fetchData();
-        };
-
-        function fetchData() {
+        function loadData() {
             const container = document.getElementById('resultContainer');
             container.innerHTML = `
                 <div class="bg-white p-8 rounded-xl border border-dashed border-slate-300 text-center text-slate-400 text-xs">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังโหลดฐานข้อมูล...
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-emerald-600 mb-2"></i><br>กำลังดึงข้อมูลจากระบบ...
                 </div>
             `;
 
             fetch("https://firestore.googleapis.com/v1/projects/vvvcar/databases/(default)/documents/jobs")
-                .then(response => {
-                    if (!response.ok) throw new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ");
+                .then(function(response) {
                     return response.json();
                 })
-                .then(data => {
+                .then(function(data) {
                     allJobs = [];
                     if (data && data.documents && Array.isArray(data.documents)) {
-                        data.documents.forEach(doc => {
-                            const f = doc.fields || {};
-                            const getVal = (val) => val ? (val.stringValue || val.integerValue || val.doubleValue || '-') : '-';
+                        data.documents.forEach(function(doc) {
+                            var f = doc.fields || {};
+                            var getVal = function(val) {
+                                return val ? (val.stringValue || val.integerValue || val.doubleValue || '-') : '-';
+                            };
                             
                             allJobs.push({
                                 carPlate: getVal(f.carPlate),
@@ -86,54 +82,54 @@
                             });
                         });
                     }
-                    renderUI(); // เรียกใช้งานแสดงผลทันทีหลังดึงข้อมูลเสร็จ
-                })
-                .catch(err => {
-                    console.error(err);
                     container.innerHTML = `
-                        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs text-center space-y-2">
-                            <p class="font-bold">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
-                            <button onclick="fetchData()" class="bg-red-600 text-white font-bold px-3 py-1 rounded text-xs mt-1">ลองใหม่อีกครั้ง</button>
+                        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 p-6 rounded-xl text-xs text-center space-y-1">
+                            <p class="font-bold text-sm">โหลดข้อมูลสำเร็จ! (${allJobs.length} คิวในระบบ)</p>
+                            <p class="text-[11px] text-slate-500">พิมพ์เลขทะเบียนเพื่อค้นหาได้เลยครับ</p>
+                        </div>
+                    `;
+                })
+                .catch(function(err) {
+                    container.innerHTML = `
+                        <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs text-center">
+                            เกิดข้อผิดพลาดในการโหลดข้อมูล
                         </div>
                     `;
                 });
         }
 
-        function renderUI() {
-            const keyword = document.getElementById('searchPlate').value.trim().toLowerCase().replace(/\s+/g, '');
-            const container = document.getElementById('resultContainer');
+        function searchJob() {
+            var keyword = document.getElementById('searchPlate').value.trim().toLowerCase().replace(/\s+/g, '');
+            var container = document.getElementById('resultContainer');
 
-            // ถ้ายังไม่พิมพ์อะไร ให้แสดงกล่องแนะนำการค้นหา
             if (!keyword) {
                 container.innerHTML = `
                     <div class="bg-blue-50 border border-blue-200 text-blue-800 p-6 rounded-xl text-xs text-center space-y-2">
                         <i class="fa-solid fa-magnifying-glass text-blue-500 text-2xl"></i>
-                        <p class="font-bold text-sm">กรุณากรอกเลขทะเบียนรถ หรือ ชื่อ เพื่อตรวจสอบสถานะ</p>
-                        <p class="text-[11px] text-slate-500">พิมพ์ค้นหาเพื่อดูรายละเอียดงานและสถานะชำระเงิน</p>
+                        <p class="font-bold text-sm">กรุณากรอกเลขทะเบียนรถ หรือ ชื่อ เพื่อค้นหา</p>
                     </div>
                 `;
                 return;
             }
 
-            let filtered = allJobs.filter(job => {
-                const plate = job.carPlate.toLowerCase().replace(/\s+/g, '');
-                const name = job.custName.toLowerCase();
-                return plate.includes(keyword) || name.includes(keyword);
+            var filtered = allJobs.filter(function(job) {
+                var plate = job.carPlate.toLowerCase().replace(/\s+/g, '');
+                var name = job.custName.toLowerCase();
+                return plate.indexOf(keyword) !== -1 || name.indexOf(keyword) !== -1;
             });
 
             if (filtered.length === 0) {
                 container.innerHTML = `
-                    <div class="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl text-xs text-center space-y-1">
-                        <p class="font-bold text-sm">ไม่พบข้อมูลทะเบียน "${document.getElementById('searchPlate').value}"</p>
-                        <p class="text-[11px] text-slate-500">ตรวจสอบความถูกต้องของเลขทะเบียนอีกครั้งครับ</p>
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-xl text-xs text-center">
+                        <p class="font-bold text-sm">ไม่พบข้อมูลที่ค้นหา</p>
                     </div>
                 `;
                 return;
             }
 
             container.innerHTML = "";
-            filtered.forEach(job => {
-                const isRepair = job.jobType === "ซ่อมเครื่องยนต์";
+            filtered.forEach(function(job) {
+                var isRepair = job.jobType === "ซ่อมเครื่องยนต์";
                 container.innerHTML += `
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
                         <div class="flex justify-between items-start border-b pb-2">
