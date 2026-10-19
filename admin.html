@@ -41,47 +41,58 @@
         const REST_API_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/jobs`;
         let allJobsData = [];
 
-        window.onload = function() {
-            fetchAllJobs();
-        };
+        document.addEventListener("DOMContentLoaded", fetchAllJobs);
 
         function fetchAllJobs() {
             const container = document.getElementById('jobList');
             container.innerHTML = `
                 <div class="bg-white p-8 rounded-xl text-center text-slate-400 text-xs border">
-                    <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-600 mb-2"></i><br>กำลังดึงข้อมูลคิวงาน...
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-slate-600 mb-2"></i><br>กำลังดึงข้อมูล...
                 </div>
             `;
 
-            fetch(REST_API_URL, { cache: 'no-cache' })
-                .then(res => {
-                    if (!res.ok) throw new Error("HTTP error! status: " + res.status);
-                    return res.json();
-                })
-                .then(data => {
-                    allJobsData = [];
-                    if (data.documents && Array.isArray(data.documents)) {
-                        allJobsData = data.documents.map(doc => {
-                            const fields = doc.fields || {};
-                            return {
-                                id: doc.name.split('/').pop(),
-                                jobType: fields.jobType?.stringValue || 'ฟื้นฟู',
-                                custName: fields.custName?.stringValue || '-',
-                                custPhone: fields.custPhone?.stringValue || '-',
-                                carPlate: fields.carPlate?.stringValue || '-',
-                                carModel: fields.carModel?.stringValue || '-',
-                                bookingDate: fields.bookingDate?.stringValue || '-',
-                                status: fields.status?.stringValue || 'จองคิวใหม่',
-                                approvalStatus: fields.approvalStatus?.stringValue || 'รออนุมัติ',
-                                paymentStatus: fields.paymentStatus?.stringValue || 'รอมัดจำ'
-                            };
-                        });
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", REST_API_URL, true);
+
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        allJobsData = [];
+
+                        if (data && data.documents && Array.isArray(data.documents)) {
+                            allJobsData = data.documents.map(doc => {
+                                const fields = doc.fields || {};
+                                const getVal = (f) => f ? (f.stringValue || f.integerValue || f.doubleValue || '') : '';
+
+                                return {
+                                    id: doc.name ? doc.name.split('/').pop() : '',
+                                    jobType: getVal(fields.jobType) || 'ฟื้นฟู',
+                                    custName: getVal(fields.custName) || '-',
+                                    custPhone: getVal(fields.custPhone) || '-',
+                                    carPlate: getVal(fields.carPlate) || '-',
+                                    carModel: getVal(fields.carModel) || '-',
+                                    bookingDate: getVal(fields.bookingDate) || '-',
+                                    status: getVal(fields.status) || 'จองคิวใหม่',
+                                    approvalStatus: getVal(fields.approvalStatus) || 'รออนุมัติ',
+                                    paymentStatus: getVal(fields.paymentStatus) || 'รอมัดจำ'
+                                };
+                            });
+                        }
+                        renderJobs();
+                    } catch (e) {
+                        container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-center">ประมวลผลข้อมูลไม่ได้: ${e.message}</div>`;
                     }
-                    renderJobs();
-                })
-                .catch(err => {
-                    container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-center">เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}</div>`;
-                });
+                } else {
+                    container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-center">เกิดข้อผิดพลาดจากเซิร์ฟเวอร์: ${xhr.status}</div>`;
+                }
+            };
+
+            xhr.onerror = function() {
+                container.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-xl text-xs text-center">เชื่อมต่อเครือข่ายไม่ได้</div>`;
+            };
+
+            xhr.send();
         }
 
         function renderJobs() {
@@ -142,16 +153,4 @@
                             <label class="text-xs font-semibold text-slate-600 whitespace-nowrap">สถานะขั้นตอน:</label>
                             <select onchange="updateJobField('${job.id}', 'status', this.value)" class="flex-1 text-xs p-2 border rounded-lg bg-white outline-none">
                                 <option value="จองคิวใหม่" ${job.status === 'จองคิวใหม่' ? 'selected' : ''}>1. จองคิวใหม่ / รับรถเข้าอู่</option>
-                                <option value="กำลังดำเนินการ" ${job.status === 'กำลังดำเนินการ' ? 'selected' : ''}>2. กำลังดำเนินการซ่อม/สปา</option>
-                                <option value="กำลังประกอบ & ทดสอบ" ${job.status === 'กำลังประกอบ & ทดสอบ' ? 'selected' : ''}>3. ประกอบ & ทดสอบระบบ</option>
-                                <option value="พร้อมส่งมอบรถ" ${job.status === 'พร้อมส่งมอบรถ' ? 'selected' : ''}>4. พร้อมส่งมอบรถ</option>
-                            </select>
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += cardHtml;
-            });
-        }
-
-        function updateJobField(docId, fieldName, fieldValue) {
-            const docUrl = `${REST_API_URL}/${docId}?updat
+                                <option value="กำลังดำเนินการ" ${job.status === 'กำลังดำเนินการ' ? 'selected' : ''}>2. กำลังดำเนินการซ่อม/สปา</op
